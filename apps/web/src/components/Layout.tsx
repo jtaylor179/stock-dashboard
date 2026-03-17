@@ -1,10 +1,11 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { BarChart2, TrendingUp, BookOpen } from 'lucide-react';
+import { BarChart2, TrendingUp, BookOpen, Repeat2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const nav = [
   { to: '/', label: 'Rankings', icon: BarChart2, end: true },
   { to: '/portfolios', label: 'Portfolios', icon: TrendingUp, end: false },
+  { to: '/covered-calls', label: 'Covered Calls', icon: Repeat2, end: false },
   { to: '/analyses', label: 'Analyses', icon: BookOpen, end: false },
 ];
 

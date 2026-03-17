@@ -23,3 +23,21 @@ export async function fetchAnalyses(securityId: string) {
   if (!res.ok) throw new Error(`Failed to fetch analyses: ${res.statusText}`);
   return res.json();
 }
+
+export async function fetchPortfolioBeta() {
+  const res = await fetch(`${BASE}/portfolios/beta/combined`);
+  if (!res.ok) throw new Error(`Failed to fetch beta: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchCoveredCalls() {
+  const res = await fetch(`${BASE}/covered-calls`);
+  if (!res.ok) throw new Error('Failed to fetch covered calls');
+  return res.json();
+}
+
+export async function fetchOpportunities() {
+  const res = await fetch(`${BASE}/opportunities`);
+  if (!res.ok) throw new Error('Failed to fetch opportunities');
+  return res.json();
+}

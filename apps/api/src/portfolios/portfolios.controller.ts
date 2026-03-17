@@ -9,4 +9,9 @@ export class PortfoliosController {
   getPortfolio(@Param('id') id: string) {
     return this.portfoliosService.getPortfolioPositions(id);
   }
+
+  @Get('beta/combined')
+  getCombinedBeta() {
+    return this.portfoliosService.getCombinedBeta();
+  }
 }
