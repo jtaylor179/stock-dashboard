@@ -123,7 +123,7 @@ Use a monorepo with npm workspaces.
 
 ## Environment Variables (.env)
 ```
-SUPABASE_URL=https://xjvhgjupwroavlnkzkze.supabase.co
+SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_KEY=<service_role_key>
 PORT=3001
 ```
