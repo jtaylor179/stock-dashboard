@@ -13,7 +13,7 @@ Build a modern React + NestJS dashboard connected to an existing Supabase backen
 - Region: us-east-1
 - Use Supabase JS client (@supabase/supabase-js)
 - All tables are in `portfolio_manager` schema
-- Connection URL: https://xjvhgjupwroavlnkzkze.supabase.co
+- Connection URL: https://xxx.supabase.co
 - Anon key will be provided via env var SUPABASE_ANON_KEY
 - Service role key via SUPABASE_SERVICE_KEY
 
