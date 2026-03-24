@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Res, HttpStatus } from '@nestjs/common';
 import { SecuritiesService } from './securities.service';
+import { LiveMetricsService } from './live-metrics.service';
 import { Response } from 'express';
 import { existsSync, createReadStream } from 'fs';
 import { join } from 'path';
@@ -8,7 +9,10 @@ const CHARTS_DIR = join(process.env.HOME || '', '.openclaw', 'workspace', 'chart
 
 @Controller('securities')
 export class SecuritiesController {
-  constructor(private readonly securitiesService: SecuritiesService) {}
+  constructor(
+    private readonly securitiesService: SecuritiesService,
+    private readonly liveMetricsService: LiveMetricsService,
+  ) {}
 
   @Get(':id')
   getSecurity(@Param('id') id: string) {
@@ -18,6 +22,11 @@ export class SecuritiesController {
   @Get(':id/analyses')
   getAnalyses(@Param('id') id: string) {
     return this.securitiesService.getAnalyses(id);
+  }
+
+  @Get(':symbol/live')
+  getLiveMetrics(@Param('symbol') symbol: string) {
+    return this.liveMetricsService.getLiveMetrics(symbol.toUpperCase());
   }
 
   @Get(':symbol/chart/:interval')

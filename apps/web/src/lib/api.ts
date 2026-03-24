@@ -41,3 +41,9 @@ export async function fetchOpportunities() {
   if (!res.ok) throw new Error('Failed to fetch opportunities');
   return res.json();
 }
+
+export async function fetchLiveMetrics(symbol: string) {
+  const res = await fetch(`${BASE}/securities/${symbol}/live`);
+  if (!res.ok) throw new Error('Failed to fetch live metrics');
+  return res.json();
+}

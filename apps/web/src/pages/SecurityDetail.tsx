@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Target, TrendingUp, FileText, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Target, TrendingUp, FileText, BarChart3, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { fetchSecurity, fetchAnalyses } from '../lib/api';
+import { fetchSecurity, fetchAnalyses, fetchLiveMetrics } from '../lib/api';
 import { formatPrice, formatCurrency, timeAgo, cn } from '../lib/utils';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -194,11 +194,72 @@ function AnalysisCard({ analysis }: { analysis: any }) {
   );
 }
 
+function LiveMetricsCard({ metrics }: { metrics: any }) {
+  if (!metrics) return null;
+  const dayUp = (metrics.dayChangePct ?? 0) >= 0;
+  const rsiColor = metrics.rsi <= 30 ? 'text-green-400' : metrics.rsi >= 70 ? 'text-red-400' : metrics.rsi <= 45 ? 'text-yellow-400' : 'text-[#94a3b8]';
+
+  return (
+    <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Zap size={13} className="text-yellow-400" />
+        <span className="text-xs font-medium text-[#94a3b8] uppercase tracking-wide">Live Data</span>
+        <span className="text-[10px] text-[#333] ml-auto">{new Date(metrics.fetchedAt).toLocaleTimeString()}</span>
+      </div>
+      <div className="grid grid-cols-4 gap-4 lg:grid-cols-8">
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">Price</p>
+          <p className="text-sm font-bold text-white">{formatPrice(metrics.price)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">Day Chg</p>
+          <p className={cn('text-sm font-mono font-semibold', dayUp ? 'text-green-400' : 'text-red-400')}>
+            {metrics.dayChangePct != null ? `${dayUp ? '+' : ''}${metrics.dayChangePct}%` : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">RSI (14d)</p>
+          <p className={cn('text-sm font-mono font-semibold', rsiColor)}>{metrics.rsi ?? '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">vs 50d SMA</p>
+          <p className={cn('text-sm font-mono', metrics.sma50 && metrics.price < metrics.sma50 ? 'text-red-400' : 'text-green-400')}>
+            {metrics.sma50 ? `${((metrics.price / metrics.sma50 - 1) * 100).toFixed(1)}%` : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">vs 200d SMA</p>
+          <p className={cn('text-sm font-mono', metrics.sma200 && metrics.price < metrics.sma200 ? 'text-red-400' : 'text-green-400')}>
+            {metrics.sma200 ? `${((metrics.price / metrics.sma200 - 1) * 100).toFixed(1)}%` : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">52w High</p>
+          <p className="text-sm font-mono text-[#94a3b8]">{metrics.high52 ? formatPrice(metrics.high52) : '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">From High</p>
+          <p className={cn('text-sm font-mono', (metrics.fromHigh52 ?? 0) < -20 ? 'text-green-400' : 'text-[#94a3b8]')}>
+            {metrics.fromHigh52 != null ? `${metrics.fromHigh52}%` : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] text-[#64748b] mb-0.5">Mkt Cap</p>
+          <p className="text-sm font-mono text-[#94a3b8]">
+            {metrics.marketCap ? `$${(metrics.marketCap / 1e9).toFixed(0)}B` : '—'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SecurityDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [secData, setSecData] = useState<any>(null);
   const [analyses, setAnalyses] = useState<any[]>([]);
+  const [liveMetrics, setLiveMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [chart4hOk, setChart4hOk] = useState(false);
@@ -212,13 +273,14 @@ export default function SecurityDetail() {
       .then(([sec, an]) => {
         setSecData(sec);
         setAnalyses(an);
-        // Check if charts exist
         const sym = sec.security?.symbol;
         if (sym) {
           fetch(`/api/securities/${sym}/chart/4hour`, { method: 'HEAD' })
             .then(r => setChart4hOk(r.ok)).catch(() => {});
           fetch(`/api/securities/${sym}/chart/1hour`, { method: 'HEAD' })
             .then(r => setChart1hOk(r.ok)).catch(() => {});
+          // Fetch live metrics
+          fetchLiveMetrics(sym).then(setLiveMetrics).catch(() => {});
         }
       })
       .catch(e => setError(e.message))
@@ -279,6 +341,9 @@ export default function SecurityDetail() {
       </div>
 
       <div className="p-6 space-y-6 max-w-6xl">
+        {/* Live metrics bar */}
+        {liveMetrics && <LiveMetricsCard metrics={liveMetrics} />}
+
         {/* Top row: Entry Setup + CC Plan + Thesis */}
         {wl && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
