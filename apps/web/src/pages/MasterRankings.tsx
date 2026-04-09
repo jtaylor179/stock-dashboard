@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronUp, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import { fetchWatchlist, fetchOpportunities } from '../lib/api';
+import { fetchWatchlist, fetchOpportunities, fetchEtfRankings } from '../lib/api';
 import { formatCurrency, formatPrice, cn } from '../lib/utils';
 
 type SortKey = 'conviction' | 'symbol' | 'cc_cost';
@@ -202,47 +202,188 @@ function EquitiesTab({ data, loading, error, onRefresh }: any) {
 }
 
 // ─── ETFs tab ────────────────────────────────────────────────────────────────
-function EtfsTab({ data, loading, error }: any) {
-  const etfData = useMemo(
-    () => data.filter((d: any) => d.security?.security_type?.includes('ETF') || ['EEM','EFA','EWZ','MOO','SJB','CPER','TLT','GLD','TZA'].includes(d.security?.symbol)),
-    [data],
+
+type EtfSortKey = 'symbol' | 'price' | 'rsi' | 'fromHigh' | 'entry';
+type EtfRow = {
+  symbol: string;
+  name: string;
+  category: string;
+  price: number | null;
+  rsi: number | null;
+  rsiSignal: string;
+  ema4hBull: boolean | null;
+  fromHigh52: number | null;
+  high52: number | null;
+  entrySignal: string;
+};
+
+const CATEGORY_BADGE: Record<string, string> = {
+  'REITs':         'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  'Gold/Bonds':    'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  'International': 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  'Energy':        'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  'Agriculture':   'bg-green-500/15 text-green-400 border-green-500/30',
+  'Credit':        'bg-slate-500/15 text-slate-300 border-slate-500/30',
+};
+
+const RSI_SIGNAL_BADGE: Record<string, string> = {
+  'OVERSOLD':   'bg-red-500/15 text-red-400 border-red-500/30',
+  'WATCH':      'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  'NEUTRAL':    'bg-[#2a2a2a] text-[#64748b] border-[#333]',
+  'OVERBOUGHT': 'bg-red-500/15 text-red-400 border-red-500/30',
+};
+
+const ENTRY_BADGE: Record<string, string> = {
+  'BUY NOW': 'bg-green-500/15 text-green-400 border-green-500/30',
+  'STARTER': 'bg-green-500/15 text-green-400 border-green-500/30',
+  'WATCH':   'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  'AVOID':   'bg-red-500/15 text-red-400 border-red-500/30',
+  'NEUTRAL': 'bg-[#2a2a2a] text-[#64748b] border-[#333]',
+};
+
+const ENTRY_SORT_ORDER: Record<string, number> = {
+  'BUY NOW': 1, 'STARTER': 2, 'WATCH': 3, 'NEUTRAL': 4, 'AVOID': 5,
+};
+
+function EtfsTab() {
+  const [rows, setRows] = useState<EtfRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<EtfSortKey>('rsi');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRows(await fetchEtfRankings());
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  function toggleSort(key: EtfSortKey) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir(key === 'rsi' ? 'asc' : 'desc'); }
+  }
+
+  const sorted = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      let av: any, bv: any;
+      if (sortKey === 'symbol')  { av = a.symbol;  bv = b.symbol; }
+      if (sortKey === 'price')   { av = a.price ?? 0;   bv = b.price ?? 0; }
+      if (sortKey === 'rsi')     { av = a.rsi ?? 999;   bv = b.rsi ?? 999; }
+      if (sortKey === 'fromHigh'){ av = a.fromHigh52 ?? 0; bv = b.fromHigh52 ?? 0; }
+      if (sortKey === 'entry')   { av = ENTRY_SORT_ORDER[a.entrySignal] ?? 99; bv = ENTRY_SORT_ORDER[b.entrySignal] ?? 99; }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [rows, sortKey, sortDir]);
+
+  function SortIcon({ col }: { col: EtfSortKey }) {
+    if (sortKey !== col) return <ChevronDown size={12} className="text-[#444] ml-1" />;
+    return sortDir === 'asc'
+      ? <ChevronUp size={12} className="text-blue-400 ml-1" />
+      : <ChevronDown size={12} className="text-blue-400 ml-1" />;
+  }
+
+  const Th = ({ col, label }: { col: EtfSortKey; label: string }) => (
+    <th className="px-4 py-3 text-xs text-[#64748b] font-medium cursor-pointer hover:text-white"
+      onClick={() => toggleSort(col)}>
+      <span className="flex items-center">{label}<SortIcon col={col} /></span>
+    </th>
   );
 
   return (
-    <div className="flex-1 overflow-auto p-6">
-      {loading && <div className="flex items-center justify-center h-48 text-[#64748b] text-sm">Loading...</div>}
-      {!loading && (
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="border-b border-[#2a2a2a]">
-              {['Symbol', 'Status', 'Entry Zone', 'RSI Gate', 'Trigger', 'Price', 'Thesis'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs text-[#64748b] font-medium">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {etfData.map((item: any) => (
-              <tr key={item.id} className="border-b border-[#1a1a1a] hover:bg-[#111]">
-                <td className="px-4 py-3">
-                  <div className="font-semibold text-white">{item.security?.symbol}</div>
-                  <div className="text-xs text-[#64748b] truncate max-w-[120px]">{item.security?.security_name}</div>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={cn('px-2 py-0.5 rounded text-xs border capitalize', STATUS_COLORS[item.status] ?? STATUS_COLORS.passed)}>{item.status}</span>
-                </td>
-                <td className="px-4 py-3 text-[#94a3b8] text-xs font-mono">
-                  {item.entry_price_low && item.entry_price_high ? `${formatPrice(item.entry_price_low)} – ${formatPrice(item.entry_price_high)}` : '—'}
-                </td>
-                <td className="px-4 py-3 text-[#94a3b8] font-mono text-xs">{item.entry_rsi ?? '—'}</td>
-                <td className={cn('px-4 py-3 text-xs font-medium', TRIGGER_COLORS[item.triggerStatus] ?? 'text-[#444]')}>{item.triggerStatus ?? '—'}</td>
-                <td className="px-4 py-3 text-white font-mono text-xs">{item.currentPrice != null ? formatPrice(item.currentPrice) : '—'}</td>
-                <td className="px-4 py-3 text-[#64748b] text-xs max-w-[200px] truncate">{item.thesis?.slice(0, 80)}</td>
+    <>
+      <div className="px-6 py-2.5 border-b border-[#2a2a2a] flex items-center justify-between">
+        <span className="text-xs text-[#64748b]">{rows.length} ETFs · sorted by RSI ascending by default</span>
+        <button onClick={load} disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1 text-xs text-[#94a3b8] border border-[#2a2a2a] rounded hover:border-[#3a3a3a] hover:text-white transition-colors disabled:opacity-40">
+          <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </div>
+      <div className="flex-1 overflow-auto">
+        {loading && <div className="flex items-center justify-center h-64 text-[#64748b] text-sm">Loading live data…</div>}
+        {error && <div className="flex items-center justify-center h-64 text-red-400 text-sm">{error}</div>}
+        {!loading && !error && (
+          <table className="w-full text-sm border-collapse">
+            <thead className="sticky top-0 z-10 bg-[#0d0d0d]">
+              <tr className="border-b border-[#2a2a2a]">
+                <th className="px-4 py-3 text-xs text-[#64748b] font-medium w-8">#</th>
+                <Th col="symbol"  label="Symbol" />
+                <th className="px-4 py-3 text-xs text-[#64748b] font-medium">Category</th>
+                <Th col="price"   label="Price" />
+                <Th col="rsi"     label="RSI" />
+                <th className="px-4 py-3 text-xs text-[#64748b] font-medium">RSI Signal</th>
+                <th className="px-4 py-3 text-xs text-[#64748b] font-medium">4H EMA</th>
+                <Th col="fromHigh" label="% from 52w Hi" />
+                <Th col="entry"   label="Entry Signal" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+            </thead>
+            <tbody>
+              {sorted.map((row, idx) => {
+                const highlight = row.entrySignal === 'BUY NOW' || row.entrySignal === 'STARTER';
+                return (
+                  <tr key={row.symbol}
+                    className={cn(
+                      'border-b border-[#1a1a1a] transition-colors',
+                      highlight ? 'bg-green-500/5 hover:bg-green-500/10' : 'hover:bg-[#111]',
+                    )}>
+                    <td className="px-4 py-3 text-[#444] text-xs">{idx + 1}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-white">{row.symbol}</div>
+                      <div className="text-xs text-[#64748b] truncate max-w-[160px]">{row.name}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn('px-2 py-0.5 rounded text-xs border', CATEGORY_BADGE[row.category] ?? 'bg-[#2a2a2a] text-[#64748b] border-[#333]')}>
+                        {row.category}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white font-mono text-xs">
+                      {row.price != null ? formatPrice(row.price) : <span className="text-[#444]">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {row.rsi != null
+                        ? <RsiBar rsi={row.rsi} />
+                        : <span className="text-[#444] text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn('px-2 py-0.5 rounded text-xs border', RSI_SIGNAL_BADGE[row.rsiSignal] ?? RSI_SIGNAL_BADGE['NEUTRAL'])}>
+                        {row.rsiSignal}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs font-medium">
+                      {row.ema4hBull === null
+                        ? <span className="text-[#444]">—</span>
+                        : row.ema4hBull
+                          ? <span className="text-green-400">BULL ✅</span>
+                          : <span className="text-red-400">BEAR ❌</span>}
+                    </td>
+                    <td className={cn('px-4 py-3 font-mono text-xs',
+                      row.fromHigh52 !== null && row.fromHigh52 < -15 ? 'text-green-400' :
+                      row.fromHigh52 !== null && row.fromHigh52 < -8  ? 'text-yellow-400' : 'text-[#94a3b8]')}>
+                      {row.fromHigh52 != null ? `${row.fromHigh52}%` : <span className="text-[#444]">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn('px-2 py-0.5 rounded text-xs border font-medium', ENTRY_BADGE[row.entrySignal] ?? ENTRY_BADGE['NEUTRAL'])}>
+                        {row.entrySignal}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -384,7 +525,7 @@ export default function MasterRankings() {
       </div>
 
       {tab === 'equities' && <EquitiesTab data={data} loading={loading} error={error} onRefresh={load} />}
-      {tab === 'etfs' && <EtfsTab data={data} loading={loading} error={error} />}
+      {tab === 'etfs' && <EtfsTab />}
       {tab === 'opportunities' && <OpportunitiesTab />}
     </div>
   );

@@ -5,6 +5,7 @@ import { PortfoliosModule } from './portfolios/portfolios.module';
 import { SecuritiesModule } from './securities/securities.module';
 import { CoveredCallsModule } from './covered-calls/covered-calls.module';
 import { OpportunitiesModule } from './opportunities/opportunities.module';
+import { EtfsModule } from './etfs/etfs.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { OpportunitiesModule } from './opportunities/opportunities.module';
     SecuritiesModule,
     CoveredCallsModule,
     OpportunitiesModule,
+    EtfsModule,
   ],
 })
 export class AppModule {}

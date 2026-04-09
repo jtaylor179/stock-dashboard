@@ -47,3 +47,9 @@ export async function fetchLiveMetrics(symbol: string) {
   if (!res.ok) throw new Error('Failed to fetch live metrics');
   return res.json();
 }
+
+export async function fetchEtfRankings() {
+  const res = await fetch(`${BASE}/etfs/rankings`);
+  if (!res.ok) throw new Error('Failed to fetch ETF rankings');
+  return res.json();
+}
